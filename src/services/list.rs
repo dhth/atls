@@ -19,12 +19,12 @@ where
         let entry_path = entry.path();
         match fs::metadata(&entry_path).await {
             Ok(m) => {
-                let path_kind = if m.is_file() {
-                    EntryKind::File
+                let path_kind = if m.is_symlink() {
+                    EntryKind::Symlink
                 } else if m.is_dir() {
                     EntryKind::Directory
-                } else if m.is_symlink() {
-                    EntryKind::Symlink
+                } else if m.is_file() {
+                    EntryKind::File
                 } else {
                     EntryKind::Unknown
                 };
@@ -34,6 +34,8 @@ where
             Err(_e) => {} // TODO: handle this error
         }
     }
+
+    entries.sort();
 
     debug!(
         "found {} entries in directory {:?}",
