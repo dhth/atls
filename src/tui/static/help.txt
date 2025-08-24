@@ -1,0 +1,15 @@
+Keymaps
+---
+
+General
+    ?                    show/hide help view
+    Esc / q              go back/exit
+    <ctrl+c>             exit immediately
+
+Explorer
+    j / ↓                select next entry
+    k / ↑                select previous entry
+    <tab>                go to next session
+    <S-tab>              go to previous session
+    1-4                  go to nth session
+    <space>              mark entry
