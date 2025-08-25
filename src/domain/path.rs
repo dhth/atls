@@ -23,10 +23,9 @@ impl PartialOrd for Entry {
 
 impl Ord for Entry {
     fn cmp(&self, other: &Self) -> std::cmp::Ordering {
-        match self.kind.cmp(&other.kind) {
-            std::cmp::Ordering::Equal => self.inner.cmp(&other.inner),
-            other => other,
-        }
+        self.kind
+            .cmp(&other.kind)
+            .then_with(|| self.inner.cmp(&other.inner))
     }
 }
 
@@ -48,6 +47,7 @@ impl Entry {
     pub fn path_str(&self) -> String {
         match self.kind() {
             EntryKind::Directory => format!("{}/", self.path_str),
+            EntryKind::Symlink => format!("{}@", self.path_str),
             _ => self.path_str.clone(),
         }
     }
@@ -77,7 +77,7 @@ mod tests {
             Entry::new(PathBuf::from("/home/user/atls/.git"), EntryKind::Directory),
             Entry::new(PathBuf::from("/home/user/atls/link-a"), EntryKind::Symlink),
             Entry::new(PathBuf::from("/home/user/atls/Cargo.toml"), EntryKind::File),
-            Entry::new(PathBuf::from("/home/user/atls/file"), EntryKind::Unknown),
+            Entry::new(PathBuf::from("/home/user/atls/unknown"), EntryKind::Unknown),
             Entry::new(
                 PathBuf::from("/home/user/atls/target"),
                 EntryKind::Directory,
@@ -102,9 +102,9 @@ mod tests {
         - ".fdignore"
         - Cargo.lock
         - Cargo.toml
-        - link-a
-        - link-b
-        - file
+        - link-a@
+        - link-b@
+        - unknown
         "#);
     }
 }
