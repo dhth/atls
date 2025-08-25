@@ -17,7 +17,7 @@ where
     let mut entries = vec![];
     while let Some(entry) = read_dir_result.next_entry().await? {
         let entry_path = entry.path();
-        match fs::metadata(&entry_path).await {
+        match fs::symlink_metadata(&entry_path).await {
             Ok(m) => {
                 let path_kind = if m.is_file() {
                     EntryKind::File
@@ -35,10 +35,46 @@ where
         }
     }
 
+    entries.sort();
+
     debug!(
         "found {} entries in directory {:?}",
         entries.len(),
         path.as_ref()
     );
     Ok(entries)
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use insta::assert_yaml_snapshot;
+    use std::path::PathBuf;
+
+    #[tokio::test]
+    async fn listing_entries_works() {
+        // GIVEN
+        let path = PathBuf::from("src/services/testdata");
+
+        // WHEN
+        let entries = list_entries_at_directory(&path)
+            .await
+            .expect("entries should've been listed");
+
+        // THEN
+        let paths = entries
+            .into_iter()
+            .map(|e| e.path_str())
+            .collect::<Vec<_>>();
+
+        assert_yaml_snapshot!(paths, @r#"
+        - ".dir/"
+        - dir-a/
+        - dir-b/
+        - ".file"
+        - file-a.txt
+        - file-d.txt
+        - file-c.txt@
+        "#);
+    }
 }

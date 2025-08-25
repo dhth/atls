@@ -1,9 +1,9 @@
 use std::path::{Path, PathBuf};
 
-#[derive(Debug, Clone, Copy, Eq, PartialEq, Hash)]
+#[derive(Debug, Clone, Copy, Eq, PartialEq, Hash, PartialOrd, Ord)]
 pub enum EntryKind {
-    File,
     Directory,
+    File,
     Symlink,
     Unknown,
 }
@@ -13,6 +13,20 @@ pub struct Entry {
     inner: PathBuf,
     kind: EntryKind,
     path_str: String,
+}
+
+impl PartialOrd for Entry {
+    fn partial_cmp(&self, other: &Self) -> Option<std::cmp::Ordering> {
+        Some(self.cmp(other))
+    }
+}
+
+impl Ord for Entry {
+    fn cmp(&self, other: &Self) -> std::cmp::Ordering {
+        self.kind
+            .cmp(&other.kind)
+            .then_with(|| self.inner.cmp(&other.inner))
+    }
 }
 
 impl Entry {
@@ -33,6 +47,7 @@ impl Entry {
     pub fn path_str(&self) -> String {
         match self.kind() {
             EntryKind::Directory => format!("{}/", self.path_str),
+            EntryKind::Symlink => format!("{}@", self.path_str),
             _ => self.path_str.clone(),
         }
     }
@@ -43,5 +58,53 @@ impl Entry {
 
     pub fn path(&self) -> &Path {
         self.inner.as_path()
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use insta::assert_yaml_snapshot;
+    use std::path::PathBuf;
+
+    #[test]
+    fn test_entries_are_sorted_correctly() {
+        // GIVEN
+
+        let mut entries = vec![
+            Entry::new(PathBuf::from("/home/user/atls/Cargo.lock"), EntryKind::File),
+            Entry::new(PathBuf::from("/home/user/atls/src"), EntryKind::Directory),
+            Entry::new(PathBuf::from("/home/user/atls/.git"), EntryKind::Directory),
+            Entry::new(PathBuf::from("/home/user/atls/link-a"), EntryKind::Symlink),
+            Entry::new(PathBuf::from("/home/user/atls/Cargo.toml"), EntryKind::File),
+            Entry::new(PathBuf::from("/home/user/atls/unknown"), EntryKind::Unknown),
+            Entry::new(
+                PathBuf::from("/home/user/atls/target"),
+                EntryKind::Directory,
+            ),
+            Entry::new(PathBuf::from("/home/user/atls/link-b"), EntryKind::Symlink),
+            Entry::new(PathBuf::from("/home/user/atls/.fdignore"), EntryKind::File),
+        ];
+
+        // WHEN
+        entries.sort();
+
+        // THEN
+        let paths = entries
+            .into_iter()
+            .map(|e| e.path_str())
+            .collect::<Vec<_>>();
+
+        assert_yaml_snapshot!(paths, @r#"
+        - ".git/"
+        - src/
+        - target/
+        - ".fdignore"
+        - Cargo.lock
+        - Cargo.toml
+        - link-a@
+        - link-b@
+        - unknown
+        "#);
     }
 }
