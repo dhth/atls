@@ -11,6 +11,7 @@ alias lf := lint-fix
 alias r := run
 alias re := review
 alias t := test
+alias tl := taillog
 
 aud:
   cargo audit --all-targets
@@ -56,3 +57,6 @@ all:
   cargo fmt --all
   cargo clippy --all-targets
   cargo nextest run
+
+taillog:
+    tail -n 40 -f ~/.local/state/atls/atls.log

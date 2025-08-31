@@ -7,12 +7,14 @@ use ratatui::crossterm::event::{Event, KeyCode, KeyEventKind, KeyModifiers};
 #[derive(Debug)]
 pub enum Msg {
     // user actions
+    CopyMarkedItems,
     GoBackOrQuit,
     GoToNextSession,
     GoToPane(Pane),
     GoToPreviousSession,
     GoToSession(usize),
     MarkPath,
+    MoveMarkedItems,
     NavigateIntoDir,
     NavigateOutOfDir,
     QuitImmediately,
@@ -22,6 +24,7 @@ pub enum Msg {
     SelectPrevious,
     TerminalResize(u16, u16),
     // internal
+    FSOperationFinished(anyhow::Result<()>),
     DirectoryRead {
         session_info: SessionInfo,
         entries: Vec<Entry>,
@@ -56,6 +59,12 @@ pub fn get_event_handling_msg(model: &Model, event: Event) -> Option<Msg> {
                         KeyCode::BackTab => Some(Msg::GoToPreviousSession),
                         KeyCode::Char('l') | KeyCode::Right => Some(Msg::NavigateIntoDir),
                         KeyCode::Char('h') | KeyCode::Left => Some(Msg::NavigateOutOfDir),
+                        KeyCode::Char('p') if !model.marked_paths.is_empty() => {
+                            Some(Msg::CopyMarkedItems)
+                        }
+                        KeyCode::Char('v') if !model.marked_paths.is_empty() => {
+                            Some(Msg::MoveMarkedItems)
+                        }
                         KeyCode::Esc | KeyCode::Char('q') => Some(Msg::GoBackOrQuit),
                         KeyCode::Char('c') if key_event.modifiers == KeyModifiers::CONTROL => {
                             Some(Msg::QuitImmediately)
