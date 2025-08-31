@@ -69,16 +69,9 @@ pub fn update(model: &mut Model, msg: Msg) -> Vec<Cmd> {
         }
         // internal
         Msg::FSOperationFinished(error) => {
-            match error {
-                Ok(_) => {
-                    if let Some(session_dir_addr) = model.get_session_path() {
-                        cmds.push(Cmd::ReadDir((session_dir_addr.into(), true)));
-                    }
-                }
-                Err(e) => {
-                    model.user_msg = Some(UserMsg::error(e.to_string()));
-                }
-            };
+            if let Err(e) = error {
+                model.user_msg = Some(UserMsg::error(e.to_string()));
+            }
 
             model.clear_marked_paths();
 
