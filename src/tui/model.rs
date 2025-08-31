@@ -116,6 +116,25 @@ impl Session {
         }
     }
 
+    fn selected_path(&self) -> Option<PathBuf> {
+        match self {
+            Session::Uninitialized => None,
+            Session::Initialized {
+                path: _,
+                entries,
+                state,
+            } => {
+                if let Some(selected_index) = state.selected()
+                    && selected_index < entries.len()
+                {
+                    Some(entries[selected_index].entry.path().to_path_buf())
+                } else {
+                    None
+                }
+            }
+        }
+    }
+
     fn select_path<P>(&mut self, path_to_select: P) -> bool
     where
         P: AsRef<Path>,
@@ -151,6 +170,7 @@ pub struct Model {
     pub sessions: Vec<Session>,
     pub current_session_index: usize,
     pub marked_paths: HashSet<Entry>,
+    // store selected path (ie, under cursor) for each directory
     pub last_selections: HashMap<PathBuf, PathBuf>,
     pub active_pane: Pane,
     pub last_active_pane: Option<Pane>,
@@ -369,9 +389,16 @@ impl Model {
                     state: _,
                 } => {
                     if session_path == &session_info.path {
-                        // TODO: improve this to handle changes to the directory
-                        // If that happens, the selected entry will jump around
+                        let last_selected_path = self.sessions[i].selected_path();
+                        if let Some(selected_path) = &last_selected_path {
+                            self.last_selections
+                                .insert(session_path.clone(), selected_path.clone());
+                        }
+
                         self.sessions[i] = Session::new(session_info.path.clone(), entries.clone());
+                        if let Some(selected_path) = last_selected_path {
+                            self.sessions[i].select_path(selected_path);
+                        }
                     }
                 }
             }
@@ -477,7 +504,7 @@ impl Model {
         self.sync_marked_paths_to_current_session();
     }
 
-    pub(super) fn get_current_directory(&self) -> Option<DirectoryAddress> {
+    pub(super) fn get_directory_under_cursor(&self) -> Option<DirectoryAddress> {
         if let Session::Initialized {
             path: _,
             entries,
@@ -498,25 +525,51 @@ impl Model {
         None
     }
 
-    pub(super) fn get_parent_directory(&self) -> Option<DirectoryAddress> {
-        if let Session::Initialized {
-            path: _,
-            entries,
-            state,
-        } = self.current_session()
-            && let Some(i) = state.selected()
-            && i < entries.len()
-        {
-            let current_entry = &entries[i].entry;
-            if let Some(parent) = current_entry.path().parent().and_then(|p| p.parent()) {
-                return Some(DirectoryAddress {
-                    session_index: self.current_session_index,
-                    path: parent.to_path_buf(),
-                });
-            }
+    pub(super) fn get_parent_dir_for_current_session(&self) -> Option<DirectoryAddress> {
+        match self.current_session() {
+            Session::Uninitialized => None,
+            Session::Initialized { path, .. } => path.parent().map(|p| DirectoryAddress {
+                session_index: self.current_session_index,
+                path: p.to_path_buf(),
+            }),
         }
+    }
 
-        None
+    pub(super) fn clear_marked_paths(&mut self) {
+        self.marked_paths.clear();
+    }
+
+    pub(super) fn get_session_path(&self) -> Option<DirectoryAddress> {
+        match self.current_session() {
+            Session::Uninitialized => None,
+            Session::Initialized { path, .. } => Some(DirectoryAddress {
+                session_index: self.current_session_index,
+                path: path.clone(),
+            }),
+        }
+    }
+
+    pub(super) fn get_unique_session_paths(&self) -> Vec<SessionInfo> {
+        let mut seen_sessions = HashSet::new();
+
+        self.sessions
+            .iter()
+            .enumerate()
+            .filter_map(|(i, s)| match s {
+                Session::Uninitialized => None,
+                Session::Initialized { path, .. } => {
+                    if seen_sessions.contains(path) {
+                        None
+                    } else {
+                        seen_sessions.insert(path.clone());
+                        Some(SessionInfo {
+                            index: i,
+                            path: path.clone(),
+                        })
+                    }
+                }
+            })
+            .collect::<Vec<_>>()
     }
 
     fn num_initialized_sessions(&self) -> usize {
