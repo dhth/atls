@@ -4,7 +4,7 @@ use ratatui::style::Color;
 use ratatui::{
     Frame,
     layout::{Alignment, Constraint, Layout, Rect},
-    style::{Style, Stylize},
+    style::Style,
     text::{Line, Span},
     widgets::{Block, List, ListDirection, ListItem, Padding, Paragraph, Wrap},
 };
